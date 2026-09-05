@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const ytSearch = require('yt-search');
-const ytdl = require('@distube/ytdl-core');
+const play = require('play-dl');
 
 const app = express();
 app.use(cors());
@@ -47,39 +47,19 @@ app.get('/stream', async (req, res) => {
     try {
         const url = `https://www.youtube.com/watch?v=${videoId}`;
         
-        // Comprobar si el video es válido
-        if (!ytdl.validateURL(url)) {
-            return res.status(400).send('URL inválida');
-        }
+        const stream = await play.stream(url, {
+            discordPlayerCompatibility : true
+        });
 
-        // Encabezados para que el navegador sepa que es audio streaming
         res.setHeader('Content-Type', 'audio/mpeg');
         res.setHeader('Transfer-Encoding', 'chunked');
 
-        // Extraer audio
-        const stream = ytdl(url, {
-            filter: 'audioonly',
-            quality: 'highestaudio',
-            highWaterMark: 1 << 25 // 32MB buffer
-        });
-
-        // Manejar errores del stream para evitar caídas del servidor
-        stream.on('error', (err) => {
-            console.error('Error en el streaming:', err);
-            if (!res.headersSent) {
-                res.status(500).send('Error extrayendo el audio');
-            } else {
-                res.end();
-            }
-        });
-
-        // Enviar stream directamente a la respuesta
-        stream.pipe(res);
+        stream.stream.pipe(res);
 
     } catch (error) {
         console.error('Error global de streaming:', error);
         if (!res.headersSent) {
-            res.status(500).send('Error interno del servidor');
+            res.status(500).send('Error interno del servidor o video bloqueado');
         }
     }
 });
